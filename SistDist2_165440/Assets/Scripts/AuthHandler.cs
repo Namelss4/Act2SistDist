@@ -21,6 +21,8 @@ public class AuthHandler : MonoBehaviour
 
     public TMP_Text[] textUsers = new TMP_Text[0];
 
+    public TMP_Text[] textScore = new TMP_Text[0];
+
     //public TMP_Text scoreText;
 
     // Start is called before the first frame update
@@ -120,7 +122,8 @@ public class AuthHandler : MonoBehaviour
     {
         for (int i = 0; i < usuarios.Length; i++)
         {
-            textUsers[i].text = usuarios[i].username + $" score: {usuarios[i].data.score}";
+            textUsers[i].text = usuarios[i].username;
+            textScore[i].text = Convert.ToString(usuarios[i].data.score);
         }
     }
 

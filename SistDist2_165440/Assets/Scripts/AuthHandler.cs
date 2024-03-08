@@ -12,10 +12,16 @@ public class AuthHandler : MonoBehaviour
 {
     string url = "https://sid-restapi.onrender.com";
 
-    public GameObject Panel;
+    public GameObject Panel, LeadPanel;
+
+    //private List<GameObject> LeaderboardItems;
 
     public string Token { get; private set; }
     public string Username { get; private set; }
+
+    public TMP_Text[] textUsers = new TMP_Text[0];
+
+    //public TMP_Text scoreText;
 
     // Start is called before the first frame update
     void Start()
@@ -60,8 +66,21 @@ public class AuthHandler : MonoBehaviour
 
         Panel.SetActive(true);
 
+
         Token = null;
         PlayerPrefs.SetString("token", Token);
+    }
+
+    public void abrirLB()
+    {
+        //GameObject.Find("LeadBoard").SetActive(true);
+        LeadPanel.SetActive(true);
+    }
+
+    public void cerrarLB()
+    {
+        //GameObject.Find("LeadBoard").SetActive(false);
+        LeadPanel.SetActive(false);
     }
 
     public void updateScore()
@@ -96,6 +115,62 @@ public class AuthHandler : MonoBehaviour
             Debug.LogError("No se puede actualizar el puntaje, el nombre de usuario no está inicializado.");
         }
     }
+
+    public void ShowBoard(UsuarioJson[] usuarios)
+    {
+        for (int i = 0; i < usuarios.Length; i++)
+        {
+            textUsers[i].text = usuarios[i].username + $" score: {usuarios[i].data.score}";
+        }
+    }
+
+    //void SetLeaderboardItem(GameObject item, UsuarioJson usuario)
+    //{
+    //    LeaderboardItems.Add(item);
+
+    //    LeaderboardItem leaderboardItem = item.GetComponent<LeaderboardItem>();
+
+    //    leaderboardItem.SetItem(usuario, LeaderboardItems.Count);
+    //}
+
+    public void ConsultarLeaderboard()
+    {
+        abrirLB();
+
+        StartCoroutine("ObtenerUsuarios");
+    }
+
+
+    IEnumerator ObtenerUsuarios()
+    {
+        UnityWebRequest request = UnityWebRequest.Get(url + "/api/usuarios");
+        request.SetRequestHeader("x-token", Token);
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.ConnectionError)
+        {
+            Debug.Log(request.error);
+        }
+        else
+        {
+
+            if (request.responseCode == 200)
+            {
+                ListaUsuarios data = JsonUtility.FromJson<ListaUsuarios>(request.downloadHandler.text);
+            
+                var userList = data.usuarios.OrderByDescending(u => u.data.score).Take(5).ToArray();
+            
+                ShowBoard(userList);
+            }
+            else
+            {
+                Debug.Log(request.responseCode + "|" + request.error);
+            }
+        }
+    }
+
+
 
 
     IEnumerator Registro(string json)
@@ -193,6 +268,7 @@ public class AuthHandler : MonoBehaviour
                 PlayerPrefs.SetString("username", Username);
 
                 Panel.SetActive(false);
+                //GameObject.Find("PanelInGame").SetActive(true);
                 Debug.Log(data.token);
             }
             else
@@ -248,12 +324,19 @@ public class AuthHandler : MonoBehaviour
 }
 
 [System.Serializable]
+public class ListaUsuarios
+{
+    public UsuarioJson[] usuarios;
+}
+
+[System.Serializable]
 public class AuthenticationData
 {
     public string username;
     public string password;
     public UsuarioJson usuario;
     public string token;
+    public UserData[] usuarios;
 }
 
 [System.Serializable]

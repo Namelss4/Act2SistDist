@@ -3,15 +3,34 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEngine.Networking;
+using Unity.VisualScripting.Antlr3.Runtime;
+using System.Linq;
+using System;
+//using System;
 
 public class AuthHandler : MonoBehaviour
 {
     string url = "https://sid-restapi.onrender.com";
 
+    public GameObject Panel;
+
+    public string Token { get; private set; }
+    public string Username { get; private set; }
+
     // Start is called before the first frame update
     void Start()
     {
+        Token = PlayerPrefs.GetString("token");
 
+        if (string.IsNullOrEmpty(Token))
+        {
+            Debug.Log("No hay token");
+        }
+        else
+        {
+            Username = PlayerPrefs.GetString("username");
+            StartCoroutine("GetProfile");
+        }
     }
 
     public void enviarRegistro()
@@ -34,6 +53,50 @@ public class AuthHandler : MonoBehaviour
 
         StartCoroutine("Login", JsonUtility.ToJson(data));
     }
+
+    public void cerrarSesion()
+    {
+        //GameObject.Find("Panel").SetActive(true);
+
+        Panel.SetActive(true);
+
+        Token = null;
+        PlayerPrefs.SetString("token", Token);
+    }
+
+    public void updateScore()
+    {
+        if (Username != null)
+        {
+            //AuthenticationData data = new AuthenticationData();
+
+            UsuarioJson data = new UsuarioJson();
+
+            data.data = new DataUser();
+
+            //if (data.usuario == null)
+            //{
+            //    data.usuario = new UsuarioJson();
+            //}
+
+            //if (data.usuario.data == null)
+            //{
+            //    data.usuario.data = new DataUser();
+            //}
+
+            data.username = Username;
+
+            // Asigna el nuevo valor al score
+            data.data.score = Convert.ToInt32(GameObject.Find("InputFieldScore").GetComponent<TMP_InputField>().text);
+
+            StartCoroutine("AsignScore", JsonUtility.ToJson(data));
+        }
+        else
+        {
+            Debug.LogError("No se puede actualizar el puntaje, el nombre de usuario no está inicializado.");
+        }
+    }
+
 
     IEnumerator Registro(string json)
     {
@@ -66,6 +129,42 @@ public class AuthHandler : MonoBehaviour
 
     }
 
+    IEnumerator AsignScore(string json)
+    {
+        //UnityWebRequest request = UnityWebRequest.PostWwwForm(url+"/api/usuarios", json);
+        UnityWebRequest request = UnityWebRequest.Put(url + "/api/usuarios", json);
+        request.method = "PATCH";
+        request.SetRequestHeader("Content-Type", "application/json");
+        request.SetRequestHeader("x-token", Token);
+
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.ConnectionError)
+        {
+            Debug.Log(request.error);
+        }
+        else
+        {
+            Debug.Log(request.downloadHandler.text);
+
+            if (request.responseCode == 200)
+            {
+                AuthenticationData data = JsonUtility.FromJson<AuthenticationData>(request.downloadHandler.text);
+
+                Debug.Log("El nuevo score de " + Username + " es " + data.usuario.data.score);
+            }
+            else
+            {
+                Debug.Log(request.responseCode + "|" + request.error);
+
+                Debug.Log(json);
+            }
+
+        }
+
+    }
+
     IEnumerator Login(string json)
     {
         //UnityWebRequest request = UnityWebRequest.PostWwwForm(url+"/api/usuarios", json);
@@ -87,11 +186,60 @@ public class AuthHandler : MonoBehaviour
             {
                 AuthenticationData data = JsonUtility.FromJson<AuthenticationData>(request.downloadHandler.text);
 
+                Token = data.token;
+                Username = data.usuario.username;
+
+                PlayerPrefs.SetString("token", Token);
+                PlayerPrefs.SetString("username", Username);
+
+                Panel.SetActive(false);
                 Debug.Log(data.token);
             }
             else
             {
                 Debug.Log(request.responseCode + "|" + request.error);
+            }
+
+        }
+
+    }
+
+
+    IEnumerator GetProfile()
+    {
+        //UnityWebRequest request = UnityWebRequest.PostWwwForm(url+"/api/usuarios", json);
+        UnityWebRequest request = UnityWebRequest.Get(url + "/api/usuarios/"+Username);
+        Debug.Log("Sending Request GetProfile");
+        request.SetRequestHeader("x-token", Token);
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.ConnectionError)
+        {
+            Debug.Log(request.error);
+        }
+        else
+        {
+            Debug.Log(request.downloadHandler.text);
+
+            if (request.responseCode == 200)
+            {
+                AuthenticationData data = JsonUtility.FromJson<AuthenticationData>(request.downloadHandler.text);
+
+                Debug.Log("El usuario "+data.usuario.username+" se encuentra autenticado y su puntaje es "+data.usuario.data.score);
+                //GameObject.Find("Panel").SetActive(false);
+
+                Panel.SetActive(false);
+
+                //UsuarioJson[] usuarios = new UsuarioJson[10];
+
+                //UsuarioJson[] usuariosOrganizados = usuarios.OrderByDescending(user => user.data.score).Take(5).ToArray();
+
+            }
+            else
+            {
+                //Debug.Log(request.responseCode + "|" + request.error);
+                Debug.Log("El usuario no está autenticado");
             }
 
         }
@@ -111,6 +259,13 @@ public class AuthenticationData
 [System.Serializable]
 public class UsuarioJson
 {
-    public string _id;
+    //public string _id;
     public string username;
+    public DataUser data;
+}
+
+[System.Serializable]
+public class DataUser
+{
+    public int score;
 }
